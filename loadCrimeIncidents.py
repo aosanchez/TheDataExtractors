@@ -195,38 +195,51 @@ def insertEmptyRows(baseDF, nhDF, drDF):
     #reset the row index values and
     baseDF2.reset_index(inplace=True, drop=True)
     #check value to verify total row count
-    print("The total index count is: " + str(index_inc)) #check value to verify total row count
+    #print("The total index count is: " + str(index_inc)) #check value to verify total row count
     return baseDF2
-
 
 """ Returns num years covered """
 def getDateRangeDF(frm, to):
-    #Params that may be needed later. Parsed date/month and total values.
-    """
-    fy = int(frm[:4])
-    ty = int(to[:4])
-    fm = int(frm[5:])
-    tm = int(to[5:])
-    yearsdiff = (ty-fy)
-    monthsdiff = (tm-fm)
-    """
+    #Parsed date/month and total values.
     drange = pd.date_range(start=frm,end=to, freq='M')
     df = pd.DataFrame(drange)
     df[0] = df[0].apply(lambda x: x.strftime('%Y-%m'))
     return df
 
+""" mergeLikeColumns: Merges crime columns into two: Violent Crime and Theft Crime
+    Function simply adds freqencies from each like column into one.
+    note: I decided to leave this in the raw load file for now
+    since we wanted the most relevent simple DF output at this points
+    of the workflow.
+"""
+def mergeLikeColumns(df):
+    #remove unused columns
+    tempDF = df.drop(['DAY', 'EVENING', 'MIDNIGHT', 'GUN', 'KNIFE', 'OTHERS'], axis=1)
+    #create two columns that represent violent crime and Theft
+    #violent crime inludes: ARSON, ASSAULT W/DANGEROUS WEAPON, HOMICIDE, SEX ABUSE,
+    #Theft includes: BURGLARY, MOTOR VEHICLE THEFT, ROBBERY, THEFT F/AUTO, THEFT/OTHER
+    violentCM = df['ARSON'] + df['ASSAULT W/DANGEROUS WEAPON'] + df['HOMICIDE'] + df['SEX ABUSE']
+    theftCM = df['BURGLARY'] + df['MOTOR VEHICLE THEFT'] + df['ROBBERY'] + df['THEFT F/AUTO'] + df['THEFT/OTHER']
+    #Adjust these two columns and make a ratio
+    tempDF['violent_cm'] = violentCM
+    tempDF['theft_cm'] = theftCM
+    #tempDF['V/T Ratio'] = violentCM/theftCM
+    newDF = tempDF.drop(['ARSON','ASSAULT W/DANGEROUS WEAPON','BURGLARY','HOMICIDE','MOTOR VEHICLE THEFT','ROBBERY','SEX ABUSE','THEFT F/AUTO','THEFT/OTHER'], axis=1)
+    return newDF
 
-if __name__ == '__main__':
-    """ Main test code to kick off DataFrame build process """
-    print("Starting DF building process...")
-    # set pass in params to specific years of coverage and SQL DB
-    path = 'put AWS SQL path here'
-    frm = '2010-01'
-    to = '2017-01'
+def runLCI(path, frm, to):
+    print("Building the simplified raw Crime DataFrame...")
     #returns full date range expected per year. i.e. Jan-Dec
     drDF = getDateRangeDF(frm,to)
     #returns full crime_incidents DF with n_cluster DF
     baseDF, nhDF = getBaseDF(path, frm, to)
     #pass in both DFs to get final edited DF
-    finalDF = insertEmptyRows(baseDF, nhDF, drDF)
-    print(finalDF)
+    rawDF = insertEmptyRows(baseDF, nhDF, drDF)
+    #merge like columns
+    lciDF = mergeLikeColumns(rawDF)
+    return lciDF, nhDF
+
+if __name__ == '__main__':
+    """ Main test code to kick off DataFrame build process """
+    # set pass in params to specific years of coverage and SQL DB
+    print("Kick off the basic DF gen process...")

@@ -109,6 +109,10 @@ def censusTractToInt(censusTractNum):
 
 if __name__ == '__main__':
 
+    """ Hide this before check in!! """
+    #engine = create_engine('postgres://Tony:Sanchez@de-dbinstance.c6dfmakosb5f.us-east-1.rds.amazonaws.com:5432/dataextractorsDB')
+ +  #connection = engine.connect()
+
     """
     Test Code that passed in a path to the shapefiles and kicks off the
     Wrangling process, filling in empty fields

@@ -5,13 +5,16 @@ Georgetown Cohort 10: The Data Extractors Team
 
 Description:
 This is Python code generates all of my statistics per monthly
-and per year for each neighborhood_cluster.
+and per year for each neighborhood_cluster. It also reformats the DataFrame for
+Crime, adds Scores Column and Calculates Total Scores for all Categories in our
+Capstone project.
 import computationAnalysis as ca
 """
 
 import pandas as pd
 import numpy as np
 import loadCrimeIncidents as lc
+from natsort import natsorted
 
 def getStatsNeighborhood(df, nhDF, frm, to):
     #Get date range
@@ -62,6 +65,14 @@ def getStatsWashDC(df, frm, to):
     growth = getPercDiff(first_yearDF.num_crimes.mean(), \
         last_yearDF.num_crimes.mean())
 
+    print("Number of Crimes in DC. " + str(fy) + ": " + str(first_yearDF.num_crimes.sum()))
+    print("Number of Crimes in DC. " + str(ty) + ": " + str(last_yearDF.num_crimes.sum()))
+    print("Violent Crimes in DC. " + str(fy) + ": " + str(first_yearDF.violent_cm.sum()))
+    print("Violent Crimes in DC. " + str(ty) + ": " + str(last_yearDF.violent_cm.sum()))
+    print("Theft Crimes in DC. " + str(fy) + ": " + str(first_yearDF.theft_cm.sum()))
+    print("Theft Crimes in DC. " + str(ty) + ": " + str(last_yearDF.theft_cm.sum()))
+    #print(first_yearDF)
+    #print(last_yearDF)
     return(total_citycrime_mean, growth)
 
 #Returns a string with the end of the first year for stats
@@ -122,55 +133,137 @@ def getDateDiff(frm, to):
     monthsdiff = (tm-fm)
     return (yearsdiff, monthsdiff, fy, ty, fm, tm)
 
-def addNeighborhoodScore(df, citywide_growth):
-    df['n_score'] = df.apply(lambda _: '', axis=1)
-
-    for i in range(len(df)):
-        #Adjusting growth to reflect distance from citywide_growth
-        growth = df.perc_growth[i] - citywide_growth
-        if (growth >= -10 and growth <= 10.99):
-            df.n_score[i] = 0
-        elif (growth >= -11 and growth <= 20.99):
-            df.n_score[i] = -1
-        elif (growth >= -21 and growth <= 30.99):
-            df.n_score[i] = -2
-        elif (growth >= -31 and growth <= 40.99):
-            df.n_score[i] = -3
-        elif (growth >= 41):
-            df.n_score[i] = -4
-        elif (growth >= -20.99 and growth <= -10.01):
-            df.n_score[i] = 1
-        elif (growth >= -30.99 and growth <= -21):
-            df.n_score[i] = 2
-        elif (growth >= -40.99 and growth <= -31):
-            df.n_score[i] = 3
-        elif (growth <= -41):
-            df.n_score[i] = 4
-        else:
-            cluster = df.n_cluster[i]
-            print(cluster + " does not fit!")
-            df.n_score[i] = 0
+""" Adds a column that shows the distance from the city wide monthly num_crimes mean and the
+    actual per neighborhood month value m_diff. q_score is used to label ML clusters """
+def addMonthlyScoreColumn(df, drdf):
+    for i in range(len(drdf)):
+        #create mask for each month in time period
+        mask = df['year_month'].str.match(drdf[0][i])
+        mask_index = df[mask].index
+        m_crime = df[mask]['num_crimes'].mean()
+        # Calculate and set difference from crime to mean
+        df.loc[mask_index, 'crime_diff'] = df[mask]['num_crimes'] - m_crime
+        #Q score for crime data. Score is reversed to reflect growth/positive for crime
+        q_crime = pd.qcut(df[mask]['crime_diff'], 9, labels=[4, 3, 2, 1, 0, -1, -2, -3, -4])
+        df.loc[mask_index, 'CrimeQScore'] = q_crime
     return(df)
 
+    """ Older code for this function
+    for i in range(len(df)):
+        #get the mean of all clusters per month
+        citywide_ym = df[(df['year_month'] == df['year_month'][i])].num_crimes.mean()
+        #subract mean from actual for score
+        df.loc[i,'crime_diff'] = df['num_crimes'][i] - citywide_ym
+
+    qmi = pd.qcut(df['crime_diff'], 9, labels=[4, 3, 2, 1, 0, -1, -2, -3, -4])
+    df['CrimeQScore'] = qmi
+    return df
+    """
+
+def addNHScoreQcut(df, citywide_growth):
+    #creat series array of perc_growth values
+    s_perc_growth = df['perc_growth']
+    #subtract the city wide growth values from each nh value
+    growth = s_perc_growth - citywide_growth
+    #apply qcut. *** Notice I reversed the order of the +4 to -4 to reflect
+    #growth as a decline in crime
+    qmi = pd.qcut(s_perc_growth, 9, labels=[4, 3, 2, 1, 0, -1, -2, -3, -4])
+    #add column wiht scores to the data frame
+    df['n_score'] = qmi
+    return(df)
+
+""" Two functions written to remove NH Cluster Rows """
+def removeUnwantedNHs(df, nhdf, nh):
+    #for the base dataframe
+    df1 = df.set_index('n_cluster')
+    df2 = df1.drop(nh)
+    df2.reset_index(inplace=True)
+    #for the neighborhood_cluster dataframe
+    nhdf1 = nhdf.set_index('Name')
+    nhdf2 = nhdf1.drop(nh)
+    nhdf2.reset_index(inplace=True)
+    return(df2,nhdf2)
+
+""" load externa CSV to build score table. """
+def loadCSV(df, path):
+    #Get Ken's Data
+    path2 = path + 'SalesPrice.csv'
+    df2 = pd.read_csv(path2)
+    sortby = "nbh_cluster"
+    df3 = sortDF(df2, sortby)
+    #set scores
+    qmi3 = pd.qcut(df3['NBH_Distance_From_DC_Mean'], 9, labels=[-4, -3, -2, -1, 0, 1, 2, 3, 4])
+    dfq = pd.DataFrame(qmi3)
+
+    #get Jays and Jason's data
+    path3 = path + 'scores1.csv'
+    mainDF = pd.read_csv(path3)
+    #add ken's sales data
+    mainDF['SalesPrice'] = dfq
+
+    #get the crime data
+    sortby = "n_cluster"
+    crimeDF = sortDF(df, sortby)
+    dfqc = pd.DataFrame(crimeDF['n_score'])
+    mainDF['Crime'] = dfqc
+
+    #['NBH_Distance_From_DC_Mean']
+    total_score = mainDF['Population'] + mainDF['Poverty'] + mainDF['Mean Income'] + mainDF['SalesPrice'] + mainDF['Crime']
+    mainDF['TotalScore'] = total_score
+    qmi4 = pd.qcut(mainDF['TotalScore'], 5, labels=['Facing the Greatest Challenges', 'Falling Behind', 'Average', 'Advancing', 'Making the Greatest Advances'])
+    mainDF['Classification'] = qmi4
+    return(mainDF)
+
+def sortDF(df,sortby):
+    sorter = natsorted(df[sortby])
+    df[sortby] = df[sortby].astype("category")
+    df[sortby].cat.set_categories(sorter, inplace=True)
+    df = df.sort_values([sortby])
+    df.reset_index(inplace=True, drop=True)
+    return df
+
+#returns two DataFrames Used in Machine Learning and Visualization
+def getCrimeAndCategoryTotals(path, frm, to, nh_to_rem, file_path):
+    #Main raw DF gen code from loadCrimeIncidents
+    df, nhDF = lc.runLCI(path, frm, to)
+    #code to remove unwanted clusters we want to exclude from
+    #both DFs before we perform any calculations
+    #set the desired neighborhood_clusters to remove from future calcs
+    print("Editing the raw DataFrame to add Monthly Crime Scores, Remove Neighborhoods...")
+    df2, nhDF2  = removeUnwantedNHs(df, nhDF, nh_to_rem)
+    #Add Montly Score column for num_crimes difference from monthly mean, passing in date range
+    drdf = lc.getDateRangeDF(frm, to)
+    finalDF = addMonthlyScoreColumn(df2, drdf)
+    #print(finalDF)
+
+    print("Building the Crime and Team Total Scores DataFrame....")
+    #returns total city num_crimes mean adn citywide growth over desired period
+    total_citycrime_mean, citywide_growth = getStatsWashDC(finalDF, frm, to)
+    print("DC Crime mean overall neighborhoods: " + str(round(total_citycrime_mean,2)))
+    print("DC Crime growth between first year and last year: " + str(round(citywide_growth, 2)) + "%")
+    #retuns a New DF that calculates the score for the crime category
+    new_nhdf = getStatsNeighborhood(finalDF, nhDF2, frm, to)
+    crime_scoresDF = addNHScoreQcut(new_nhdf, citywide_growth)
+    #Three calls to get final processed Crime DataFrame
+    #returns full date range expected
+    TotalScoresDF = loadCSV(crime_scoresDF, file_path)
+    #print(TotalScoresDF)
+    return(finalDF, TotalScoresDF)
 
 if __name__ == '__main__':
-    print("Starting Stats Gen...")
-    path = 'postgres://Tony:Sanchez@de-dbinstance.c6dfmakosb5f.us-east-1.rds.amazonaws.com:5432/dataextractorsDB'
-    frm = '2010-01'
-    to = '2017-01'
-    """" Three calls to get final processed Crime DataFrame """
-    #returns full date range expected
-    drDF = lc.getDateRangeDF(frm, to)
-    #returns full crime_incidents DF with n_cluster DF
-    baseDF, nhDF = lc.getBaseDF(path, frm, to)
-    #pass in both DFs to get final edited DF
-    df = lc.insertEmptyRows(baseDF, nhDF, drDF)
+    #Set the pass in variables
+    path = "Insert DB path here"
+    frm = '2011-01'
+    to = '2016-01'
+    nh_to_rem = ['Cluster 45', 'Cluster 46']
+    file_path = '/Users/anthonysanchez/Downloads/'
+    c_file = file_path + 'crime_df.csv'
+    ts_file = file_path + 'total_scores_df.csv'
+    q_file = file_path + 'q_df.csv'
 
-    total_citycrime_mean, citywide_growth = getStatsWashDC(df, frm, to)
+    CrimeDF, TotalScoresDF = getCrimeAndCategoryTotals(path,frm,to,nh_to_rem,file_path)
 
-    print("DC overall crime mean: " + str(total_citycrime_mean))
-    print("DC growth over period: " + str(citywide_growth))
-    new_nhdf = getStatsNeighborhood(df, nhDF, frm, to)
-
-    scoresDF = addNeighborhoodScore(new_nhdf, citywide_growth)
-    print(scoresDF)
+    #print(CrimeDF)
+    #print(TotalScoresDF)
+    #CrimeDF.to_csv(c_file)
+    #TotalScoresDF.to_csv(ts_file)

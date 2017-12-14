@@ -403,7 +403,7 @@ def vis_prob(reduced_data, cluster_labels, probs, n_components, n_clusters, silh
 ################################################################################
 if __name__ == '__main__':
     print("Starting Visualizations...")
-    path = 'postgres://Tony:Sanchez@de-dbinstance.c6dfmakosb5f.us-east-1.rds.amazonaws.com:5432/dataextractorsDB'
+    path = 'Insert DB path here'
     frm = '2010-01'
     to = '2017-01'
     """" Three calls to get final processed Crime DataFrame """
@@ -417,4 +417,4 @@ if __name__ == '__main__':
     del df['n_cluster']
     del df['year_month']
 
-    gmm(df, 3, v=True)
+    kmeans(df, 3, v=True)
