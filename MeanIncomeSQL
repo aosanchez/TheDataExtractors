@@ -1,0 +1,65 @@
+--Select query that orders by year and ID
+select * from median_household_income_full
+order by year, id 
+
+--The query below joins data on the neighborhood, cluster and census level— 
+SELECT  census_tracts.neighborhood, census_tracts.cluster, median_household_income_full.census
+FROM census_tracts
+INNER JOIN median_household_income_full ON census_tracts.census=median_household_income_full.census;
+
+--The query below joins my entire median household income data with the cluster and census tract from Jay’s neighbor_clusters table
+SELECT  median_household_income_full.year, median_household_income_full.id, median_household_income_full.total_households, median_household_income_full.median_income, median_household_income_full.lat, median_household_income_full.lon, census_tracts.neighborhood, census_tracts.cluster, median_household_income_full.census
+FROM census_tracts
+INNER JOIN median_household_income_full ON census_tracts.census=median_household_income_full.census;
+
+--I added a column named median_income_average_for year and I wanted to add information for each row. Basically wanted to enter a bunch of average income data by year.
+UPDATE median_household_income_full  
+    SET average_median_income_for_year = 74202  
+    WHERE year = 2015;
+
+--Creates Table “Mean_income”
+CREATE TABLE mean_income(
+    Year VARCHAR,
+    Census_Tract VARCHAR,
+    Mean_Household_Income INTEGER,
+    Total_Households INTEGER,
+    Total_income INTEGER
+);
+
+--TRIM YEAR FIELD 
+The issue ended up being the first row, not a TRIM (Possibly a column header issue when importing/exporting the CSV) The solution was deleting the first row and then inserting it again to fix the issue.
+
+--INSERT A SINGLE ROW INTO A TABLE
+INSERT into mean_income VALUES
+('2015','Census Tract 1',269155,2435,655392425);
+
+--The query below joins my entire mean income data with the cluster and census tract from Jay’s neighbor clusters table
+SELECT  mean_income.year, mean_income.census_tract, mean_income.mean_household_income, mean_income.total_households, mean_income.total_income, census_tracts.neighborhood, census_tracts.cluster
+FROM census_tracts
+INNER JOIN mean_income ON census_tracts.census=mean_income.census_tract;
+
+--If you want to create a new table named “Jason_Table” from the join query above
+CREATE TABLE Jason_Table AS
+SELECT  mean_income.year, mean_income.census_tract, mean_income.mean_household_income, mean_income.total_households, mean_income.total_income, census_tracts.neighborhood, census_tracts.cluster
+FROM census_tracts
+INNER JOIN mean_income ON census_tracts.census=mean_income.census_tract;
+
+--Statement I need to run on each neighborhood Cluster to compute score. Once queried I find the percent different between the 2011 mean_household_income and 2015 and plug into my score chart Example for query below is difference between 90087 to 183982 percent difference (48.9% = score of +4)
+select * from mean_income_neighborhood
+where cluster = 'Cluster 1'
+order by year
+
+--Simple select statement from a table where amount is greater than
+select cluster
+from census_tracts
+where latitude > '38.88'
+
+INNER JOIN of median_household_income_full and mean_income on YEAR (This could not be done at first bc the data types did not match) One was a character varying and the other was an integer. There for the query in italics was run first. I ran the query on both tables, one table it worked on, the second table needed the cast included at the end :“USING year::integer”
+
+ALTER TABLE mean_income ALTER COLUMN year TYPE int USING year::integer;
+
+select * from mean_income
+INNER JOIN median_household_income_full 
+ON mean_income.year = median_household_income_full.year;
+
+
