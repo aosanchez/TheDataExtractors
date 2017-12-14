@@ -1,2 +1,2 @@
 # TheDataExtractors
-Capstone Project for Georgetown Continuing Studies: Growth and Decline in Washington DC
+Capstone Project for Georgetown Continuing Studies: Mapping Progress in Washington D.C.
