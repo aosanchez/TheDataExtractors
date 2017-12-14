@@ -1,7 +1,7 @@
 """
 Tony Sanchez
 10/20/2017
-Georgetown Cohort 10: The Data Extractors Team
+Georgetown Cohort 10: The Data Extractors Team!
 
 Description:
 This Python code was written to convert extracted Lat/Lon values
@@ -19,12 +19,10 @@ def getNeighborhoodClusterLatLon(path, lat, lon):
     # read your shapefile
     sf = shapefile.Reader(path)
     num_shapes = sf.numRecords
-
     # get the shapes
     shapes = sf.shapes()
     # format the point
     point = Point(lon, lat)
-
     # iterate through the shapes and check each polygon for the point
     for i in range(num_shapes):
         polygon = shape(shapes[i])
@@ -32,9 +30,7 @@ def getNeighborhoodClusterLatLon(path, lat, lon):
             cluster = sf.record(i)
             # return both the cluster neighborhood and neighborhood names
             return(cluster[2], cluster[3])
-
     return "Neighborhood not found."
-
 
 if __name__ == '__main__':
     """
